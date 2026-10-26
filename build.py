@@ -16,8 +16,7 @@ STATIC = ROOT / "static"
 DIST = ROOT / "dist"
 
 SITE_TITLE = "research"
-SITE_LEAD = "笔记、随想与未完成的草稿。影印感，不保证定论。"
-HOME_URL = "https://shippingwang.com/"
+HOME_URL = "/"
 BASE = "/research"  # deployed under shippingwang.com/research/
 
 
@@ -153,7 +152,9 @@ def load_posts() -> list[Post]:
 
 
 def shell(title: str, body: str, active: str = "research") -> str:
-    nav_home = "is-active" if active == "research" else ""
+    def nav_cls(name: str) -> str:
+        return ' class="is-active"' if active == name else ""
+
     return f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -163,17 +164,21 @@ def shell(title: str, body: str, active: str = "research") -> str:
   <link rel="icon" href="/assets/favicon.png" type="image/png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="{BASE}/css/research.css" />
 </head>
 <body>
-  <header class="site-header">
-    <div class="wrap site-header__inner">
-      <a class="site-brand" href="{BASE}/">research</a>
-      <nav class="site-nav" aria-label="primary">
-        <a href="{HOME_URL}">home</a>
-        <a class="{nav_home}" href="{BASE}/">index</a>
-        <a href="/book/">book</a>
+  <header class="nav">
+    <div class="wrap nav__inner">
+      <a class="nav__brand" href="{HOME_URL}">
+        <img class="nav__mark" src="/assets/favicon.png" alt="" width="28" height="28" />
+        shippingwang
+      </a>
+      <nav class="nav__links" aria-label="primary">
+        <a{nav_cls("research")} href="{BASE}/">research</a>
+        <a{nav_cls("book")} href="/book/">book</a>
+        <a{nav_cls("life")} href="/life/">life</a>
+        <a{nav_cls("idea")} href="/idea/">idea</a>
       </nav>
     </div>
   </header>
@@ -181,7 +186,7 @@ def shell(title: str, body: str, active: str = "research") -> str:
   <footer class="site-footer">
     <div class="wrap site-footer__inner">
       <span>shippingwang / research</span>
-      <a href="{HOME_URL}">shippingwang.com</a>
+      <a href="{HOME_URL}">home</a>
     </div>
   </footer>
 </body>
@@ -190,13 +195,15 @@ def shell(title: str, body: str, active: str = "research") -> str:
 
 
 def render_index(posts: list[Post], tag: str | None = None) -> str:
-    all_tags = sorted({t for p in posts for t in p.tags})
+    all_tags = sorted({t for p in posts for t in p.tags}, key=str.casefold)
     visible = [p for p in posts if tag is None or tag in p.tags]
-    tag_links = ['<a class="tag{cls}" href="{href}">{label}</a>'.format(
-        cls=" is-active" if tag is None else "",
-        href=f"{BASE}/",
-        label="all",
-    )]
+    tag_links = [
+        '<a class="tag{cls}" href="{href}">{label}</a>'.format(
+            cls=" is-active" if tag is None else "",
+            href=f"{BASE}/",
+            label="all",
+        )
+    ]
     for t in all_tags:
         tag_links.append(
             '<a class="tag{cls}" href="{href}">{label}</a>'.format(
@@ -208,9 +215,10 @@ def render_index(posts: list[Post], tag: str | None = None) -> str:
 
     cards = []
     for p in visible:
+        ordered_tags = sorted(p.tags, key=str.casefold)
         tags_html = "".join(
             f'<a class="tag" href="{BASE}/tag/{html.escape(t)}/">{html.escape(t)}</a>'
-            for t in p.tags
+            for t in ordered_tags
         )
         summary = html.escape(p.summary) if p.summary else ""
         cards.append(
@@ -225,13 +233,10 @@ def render_index(posts: list[Post], tag: str | None = None) -> str:
         cards.append('<li class="empty">No notes under this tag.</li>')
 
     heading = "research" if tag is None else f"tag · {tag}"
-    lead = SITE_LEAD if tag is None else f"Filtered by tag “{tag}”."
     body = f"""
   <main class="wrap">
     <header class="masthead">
-      <p class="masthead__kicker">shippingwang</p>
       <h1 class="masthead__title">{html.escape(heading)}</h1>
-      <p class="masthead__lead">{html.escape(lead)}</p>
     </header>
     <div class="tag-bar tag-bar--filter">{"".join(tag_links)}</div>
     <ul class="post-list">
@@ -244,9 +249,10 @@ def render_index(posts: list[Post], tag: str | None = None) -> str:
 
 
 def render_post(post: Post) -> str:
+    ordered_tags = sorted(post.tags, key=str.casefold)
     tags_html = " ".join(
         f'<a class="tag" href="{BASE}/tag/{html.escape(t)}/">{html.escape(t)}</a>'
-        for t in post.tags
+        for t in ordered_tags
     )
     body = f"""
   <main class="wrap article">
