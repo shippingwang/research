@@ -170,9 +170,9 @@ def shell(title: str, body: str, active: str = "research") -> str:
 <body>
   <header class="nav">
     <div class="wrap nav__inner">
-      <a class="nav__brand" href="{HOME_URL}">
+      <a class="nav__brand" href="{HOME_URL}" aria-label="shippingwang">
         <img class="nav__mark" src="/assets/favicon.png" alt="" width="28" height="28" />
-        shippingwang
+        <span class="nav__brand-text">shippingwang</span>
       </a>
       <nav class="nav__links" aria-label="primary">
         <a{nav_cls("research")} href="{BASE}/">research</a>

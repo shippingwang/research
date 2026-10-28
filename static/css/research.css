@@ -398,6 +398,15 @@ img {
 }
 
 @media (max-width: 40rem) {
+  .nav__brand-text {
+    display: none;
+  }
+
+  .nav__links {
+    gap: 0.55rem 0.9rem;
+    font-size: 0.88rem;
+  }
+
   .post-card__title {
     font-size: 1.15rem;
   }
