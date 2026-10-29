@@ -395,6 +395,48 @@ img {
   background: transparent;
 }
 
+.article__body .table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 1.1rem 0 1.4rem;
+  border: 1px solid var(--rule);
+}
+
+.article__body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.article__body th,
+.article__body td {
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.article__body th:last-child,
+.article__body td:last-child {
+  border-right: none;
+}
+
+.article__body thead th {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--paper-deep);
+  border-bottom: 1.5px solid var(--rule);
+}
+
+.article__body tbody tr:last-child td {
+  border-bottom: none;
+}
+
 .article__body blockquote {
   margin: 1.15rem 0;
   padding: 0.15rem 0 0.15rem 0.95rem;

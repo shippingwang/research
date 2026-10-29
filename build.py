@@ -100,6 +100,18 @@ def md_inline(text: str) -> str:
     return text
 
 
+def _split_table_row(line: str) -> list[str]:
+    raw = line.strip().strip("|")
+    return [c.strip() for c in raw.split("|")]
+
+
+def _is_table_sep(line: str) -> bool:
+    cells = _split_table_row(line)
+    if not cells:
+        return False
+    return all(re.fullmatch(r":?-{3,}:?", c or "") for c in cells)
+
+
 def md_to_html(src: str) -> str:
     lines = src.splitlines()
     out: list[str] = []
@@ -135,6 +147,32 @@ def md_to_html(src: str) -> str:
         if not line.strip():
             close_ul()
             i += 1
+            continue
+        # GFM 表格：| a | b | + |---|---|
+        if (
+            line.strip().startswith("|")
+            and i + 1 < len(lines)
+            and _is_table_sep(lines[i + 1])
+        ):
+            close_ul()
+            header = _split_table_row(line)
+            i += 2
+            body_rows: list[list[str]] = []
+            while i < len(lines) and lines[i].strip().startswith("|"):
+                if not _is_table_sep(lines[i]):
+                    body_rows.append(_split_table_row(lines[i]))
+                i += 1
+            cells_h = "".join(f"<th>{md_inline(c)}</th>" for c in header)
+            rows_h = "".join(
+                "<tr>" + "".join(f"<td>{md_inline(c)}</td>" for c in row) + "</tr>"
+                for row in body_rows
+            )
+            out.append(
+                '<div class="table-wrap"><table>'
+                f"<thead><tr>{cells_h}</tr></thead>"
+                f"<tbody>{rows_h}</tbody>"
+                "</table></div>"
+            )
             continue
         if line.startswith("### "):
             close_ul()
