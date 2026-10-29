@@ -279,6 +279,16 @@ img {
   padding-bottom: 0.8rem;
 }
 
+.article__body img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  margin: 1.25rem 0 1.75rem;
+  border-radius: 0.25rem;
+  border: 1px solid var(--rule);
+}
+
 .article__body {
   font-size: 1.04rem;
   line-height: 1.7;

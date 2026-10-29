@@ -6,7 +6,7 @@
 |------|------|
 | `posts/*.md` | 正文（YAML front matter：`title` / `date` / `tags` / `summary`） |
 | `build.py` | 生成静态站到 `dist/` |
-| `static/` | CSS、站点壳 |
+| `static/` | CSS、图片等静态资源（图片放 `static/img/`，文里写 `![alt](img/xxx.jpg)`） |
 
 ## 本地预览
 

@@ -55,7 +55,24 @@ def parse_front_matter(text: str) -> tuple[dict, str]:
     return meta, body
 
 
+def asset_url(src: str) -> str:
+    src = src.strip()
+    if src.startswith(("http://", "https://", "/")):
+        return src
+    return f"{BASE}/{src.lstrip('./')}"
+
+
 def md_inline(text: str) -> str:
+    # 先抠出图片，避免被 escape / 链接规则拆坏
+    imgs: list[str] = []
+
+    def park_img(m: re.Match[str]) -> str:
+        alt = html.escape(m.group(1))
+        src = html.escape(asset_url(m.group(2)), quote=True)
+        imgs.append(f'<img src="{src}" alt="{alt}" loading="lazy" />')
+        return f"\x00IMG{len(imgs) - 1}\x00"
+
+    text = re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", park_img, text)
     text = html.escape(text)
     text = re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
     text = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", text)
@@ -65,6 +82,8 @@ def md_inline(text: str) -> str:
         r'<a href="\2">\1</a>',
         text,
     )
+    for i, tag in enumerate(imgs):
+        text = text.replace(f"\x00IMG{i}\x00", tag)
     return text
 
 
@@ -279,7 +298,9 @@ def main() -> None:
     if DIST.exists():
         shutil.rmtree(DIST)
     DIST.mkdir(parents=True)
-    shutil.copytree(STATIC / "css", DIST / "css")
+    # css / img 等静态资源整树拷贝
+    if STATIC.is_dir():
+        shutil.copytree(STATIC, DIST, dirs_exist_ok=True)
 
     posts = load_posts()
     write(DIST / "index.html", render_index(posts))

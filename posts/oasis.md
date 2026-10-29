@@ -5,5 +5,6 @@ tags: [travel, oasis]
 summary: 哪些奇怪的绿洲
 ---
 
+![奇怪的绿洲](img/oases.jpeg)
 
-1. 
+1.
