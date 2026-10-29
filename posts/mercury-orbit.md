@@ -2,7 +2,7 @@
 title: 水星轨道
 date: 2026-10-24    
 tags: [physics, orbit]
-summary: 怎么用30年研究水星轨道
+summary: 怪异的水星轨道
 ---
 
 ![水星轨道](img/orbital.jpeg)
