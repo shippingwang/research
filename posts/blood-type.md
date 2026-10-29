@@ -1,7 +1,7 @@
 ---
 title: 血型研究
-date: 2026-10-20
-tags: [biology, note]
+date: 2026-10-25
+tags: [biology]
 summary: 人类血型和新生儿
 ---
 
