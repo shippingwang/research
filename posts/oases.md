@@ -2,7 +2,7 @@
 title: 奇怪的绿洲
 date: 2026-10-26
 tags: [travel, oases]
-summary: 哪些奇怪的绿洲
+summary: 中东奇怪的绿洲
 ---
 
 ![奇怪的绿洲](img/oases.jpeg)
