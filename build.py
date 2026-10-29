@@ -28,6 +28,19 @@ class Post:
     tags: list[str] = field(default_factory=list)
     summary: str = ""
     body_html: str = ""
+    cover: str = ""  # 目录缩略图 URL；来自 front matter cover 或正文首图
+
+
+IMG_MD = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
+
+
+def first_cover(meta: dict, body: str) -> str:
+    raw = (meta.get("cover") or "").strip()
+    if not raw:
+        m = IMG_MD.search(body)
+        if m:
+            raw = m.group(2).strip()
+    return asset_url(raw) if raw else ""
 
 
 def parse_front_matter(text: str) -> tuple[dict, str]:
@@ -164,6 +177,7 @@ def load_posts() -> list[Post]:
                 tags=meta.get("tags") or [],
                 summary=meta.get("summary") or "",
                 body_html=md_to_html(body),
+                cover=first_cover(meta, body),
             )
         )
     posts.sort(key=lambda p: p.date, reverse=True)
@@ -240,12 +254,24 @@ def render_index(posts: list[Post], tag: str | None = None) -> str:
             for t in ordered_tags
         )
         summary = html.escape(p.summary) if p.summary else ""
+        href = f"{BASE}/{html.escape(p.slug)}/"
+        thumb = ""
+        if p.cover:
+            src = html.escape(p.cover, quote=True)
+            alt = html.escape(p.title)
+            thumb = (
+                f'<a class="post-card__thumb" href="{href}" tabindex="-1" aria-hidden="true">'
+                f'<img src="{src}" alt="{alt}" loading="lazy" /></a>'
+            )
         cards.append(
-            f"""<li class="post-card">
-  <div class="post-card__meta"><time datetime="{html.escape(p.date)}">{html.escape(p.date)}</time></div>
-  <h2 class="post-card__title"><a href="{BASE}/{html.escape(p.slug)}/">{html.escape(p.title)}</a></h2>
-  {"<p class='post-card__summary'>" + summary + "</p>" if summary else ""}
-  <div class="post-card__tags">{tags_html}</div>
+            f"""<li class="post-card{" post-card--has-thumb" if p.cover else ""}">
+  {thumb}
+  <div class="post-card__body">
+    <div class="post-card__meta"><time datetime="{html.escape(p.date)}">{html.escape(p.date)}</time></div>
+    <h2 class="post-card__title"><a href="{href}">{html.escape(p.title)}</a></h2>
+    {"<p class='post-card__summary'>" + summary + "</p>" if summary else ""}
+    <div class="post-card__tags">{tags_html}</div>
+  </div>
 </li>"""
         )
     if not cards:
@@ -253,7 +279,7 @@ def render_index(posts: list[Post], tag: str | None = None) -> str:
 
     heading = "research" if tag is None else f"tag · {tag}"
     body = f"""
-  <main class="wrap">
+  <main class="wrap wrap--index">
     <header class="masthead">
       <h1 class="masthead__title">{html.escape(heading)}</h1>
     </header>
