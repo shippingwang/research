@@ -7,61 +7,58 @@ summary: 端侧训练
 
 # On-board Training vs Edge Training
 
-## 一，先把两个词分清
 
-这两个词经常混着用，但约束层级不一样：
-
-| | Edge Training（边缘训练） | On-board Training（板载/端侧训练） |
+| | Edge Training（边缘训练） | On-board Training（板载训练） |
 |---|---|---|
-| 跑在哪 | 边缘服务器，网关，Jetson 盒子，车机域控 | 终端设备本身：手机，MCU，可穿戴，机器人本体 |
-| 算力 | 接近小工作站，有 GPU/NPU | 百 mW～几 W，内存 KB～几 GB |
-| 训什么 | 整模型微调，领域适配，本地数据闭环 | 只训 adapter / 小分类头 / 个性化层 |
-| 代表场景 | 工厂本地微调，车端影子模式 | 手机个性化，MCU 上的关键词重新校准，相机自发更新 |
+| 运行载体 | 边缘服务器、网关、Jetson、车机域控 | 终端本体：手机、MCU、穿戴设备、机器人机身 |
+| 算力规模 | 接近小型工作站，自带GPU/NPU | 功耗大多百毫瓦到数瓦，内存从几十KB到几GB不等 |
+| 训练内容 | 完整模型微调、行业领域适配、本地数据闭环迭代 | 仅更新Adapter、分类头这类小部分个性化参数 |
+| 典型场景 | 产线本地微调、车辆影子模式迭代 | 手机个性化适配、MCU关键词校准、相机本地参数更新 |
 
-一句话：**edge training 是"把训练从云端搬到离数据近的机房"，on-board training 是"训练直接在芯片上发生，不出设备"**。后者才是硬骨头。
+一句话概括：Edge Training，是把训练从云端下移到离数据源更近的边缘节点；On-board Training，是训练流程直接跑在终端芯片内部，数据不出设备。后者的难度要高得多。
 
-## 二，为什么训练难，推理容易
 
-推理引擎（ExecuTorch，TFLite，QNN）在端侧已经很成熟，但训练一直跟不上，原因是训练比推理多背三重量：
-1. **梯度**：每个参数一份；
-2. **optimizer state**（Adam）：再两份，等于参数×3；
-3. **activations**：反向传播要存中间激活，显存峰值比推理高数倍。
+ExecuTorch、TFLite、QNN这类推理 runtime 已经成熟，能稳定跑在各类硬件上，但端上训练落地慢很多。核心是反向传播天然多出好几块开销：
+1. 梯度，每个可训练参数都要存一份；
+2. 优化器状态，比如Adam，每个参数配套两组状态，参数内存直接翻三倍；
+3. 反向需要保留全部中间激活值，训练时的内存峰值远高于推理。
 
-所以端侧训练的核心思路不是"把 PyTorch 搬小"，而是**绕开反向传播**。学界这几年基本是三条路线在卷：
+所以做板载训练，单纯把PyTorch直接移植压缩这条路走不通。最近几年主流研究基本集中在三个方向：
+- PEFT / LoRA 路线：冻结大模型主干，只训练极少一部分参数，通常占全部参数的万分之一到百分之一。像LoRA-Edge、TrainDeeploy这类工作，会再对LoRA做张量分解适配，往MCU这类资源极限的硬件上压。
+- 零阶优化（ZO）路线：不计算梯度，多次前向传播扰动参数来估算更新方向。好处是可以直接复用现成的推理引擎，不用重新改造runtime。MobiZO就是LLM场景下的代表方案，搭配MP-LoRA扰动策略，可以直接在ExecuTorch上跑轻量微调。
+- 低比特量化训练、超小内存训练：MIT那篇2022年《On-Device Training Under 256KB Memory》算是一个里程碑，证明几百KB内存的MCU也可以完成小模型在线更新；后续tinyML社区持续在补齐配套工具链。
 
-- **PEFT/LoRA 系**：只训 0.01%～1% 参数，冻结主干。LoRA-Edge，TrainDeeploy 这类工作把 LoRA 再做张量分解，硬件加速，往 MCU 和极端边缘压。
-- **零阶优化（Zeroth-Order）系**：不算梯度，靠多次 forward pass 扰动估计梯度，直接复用推理引擎，不用改 runtime。MobiZO 是这条路线在 LLM 上的代表，配 MP-LoRA 做并行扰动，已经能在 ExecuTorch 上跑端侧微调。
-- **量化/低比特训练 + 256KB 级 MCU 训练**：MIT 2022 那篇《On-Device Training Under 256KB Memory》是里程碑，证明在几 KB RAM 的 MCU 上都能做小模型在线更新，后续 tinyML 社区一直在补工具链。
+## 技术现状（2025–2026）
 
-## 三，现状（2025–2026）
+落地：
+- 手机端推理已经是标配，Apple Intelligence、新一代骁龙NPU都可以稳定跑INT4量化的7B、13B模型；
+- 手机上的训练大多局限在轻量个性化：Apple的Foundation Models框架给应用开放了端侧模型能力，用来做用户侧小范围适配；高通2025演示了在推理引擎上直接跑INT4量化LoRA，配合SDK做到Adapter随时加载切换；
+- MCU这边，Edge Impulse把传感器采集、本地重训分类头做成了可视化流水线，工业、穿戴产品用得很多。
 
-**已经落地的：**
-- 手机端**推理**是标配（Apple Intelligence，骁龙 8 Gen 系列跑 7B～13B INT4）；
-- 手机端**训练**目前主要是两种：Apple Foundation Models framework 给 app 开 on-device 模型访问，做轻量 personalization；Qualcomm 在 2025 演示了在推理模型上跑 on-device LoRA adapter，INT4 AdaScale 量化，配合 FastForward/GENIE SDK 做端侧推理+adapter 热插拔。
-- MCU 端：Edge Impulse 这类平台已经把"传感器数据 → 端侧重训分类头"做成可视化流程，工业和可穿戴在用。
+还没有成熟落地的：
+- 在手机硬件上对7B基座做全参数微调，受内存限制基本不具备可行性；
+- 大家之前期待的，设备拿着用户数据持续自主训练、持续适配使用者的闭环方案，现在进展有限。联邦学习的热度相比2019年回落明显，工程上一直受隐私、通信开销、数据分布偏移几个问题牵制。
 
-**还没落地的：**
-- 在手机上对一个 7B 模型做全参数微调——不可能，内存墙过不去；
-- 真正意义上的"用户数据持续在端上训练，越用越懂你"的闭环，目前是 federated learning 那套老故事，热度比 2019 年降了很多，工程上还卡在隐私，通信，非独立同分布数据上。
+## 生态现状
 
-## 四，公司格局
+- 高通：端侧生成 AI 投入最激进。依托 Snapdragon NPU 和 AI Hub，2025 把 Granite 4.0 搬上端侧，主推企业从云到边缘的整套管线。
+- Apple：全栈闭源。Foundation Models 框架是开发者接触端侧模型的入口，个性化训练封装在系统底层，不对外开放底层训练能力。
+- Google：TFLite 是老牌端侧训练框架，联邦学习团队还在 Pixel 上做输入法键盘这类个性化任务；但在 LLM 板载训练这一波，动作和曝光都少于高通。
+- Meta：ExecuTorch 作为开源推理 runtime，是很多 ZO 训练方案的承载底座，像 MobiZO 直接基于它改造，把推理引擎复用成训练载体。
+- NVIDIA：Jetson 产品线对应的是 Edge Training 赛道，面向机器人、工厂本地微调，不是芯片级的板载训练。
+- 工具与创业项目：Edge Impulse 主打 MCU 训练平台；Tether、QVAC 这类框架，面向异构硬件，在 Adreno、Mali、Apple GPU 上统一跑 LoRA 微调。
 
-- **Qualcomm**：端侧 GenAI 最激进的玩家，AI Hub + Snapdragon NPU，2025 把 IBM Granite 4.0 直接搬上端，做"云到边"的企业管线。
-- **Apple**：闭源全栈，Foundation Models framework 是给开发者的端侧模型入口，个性化训练在系统层做，不开放。
-- **Google**：TFLite 是端侧训练的老牌框架，Federated Learning 团队还在 Pixel 上做键盘/Gboard 的个性化；但 LLM 端侧训练这一波 Google 声音比 Qualcomm 小。
-- **Meta**：ExecuTorch 是开源端侧推理 runtime，MobiZO 这类工作直接在它上面做 ZO 训练，等于把推理引擎反过来当训练引擎用。
-- **NVIDIA**：Jetson 线吃的是 edge training 那一端——机器人，工控本地微调，不是 on-chip。
-- **创业/工具层**：Edge Impulse（MCU 训练平台），Tether/QVAC（跨异构 GPU 的 LoRA 微调框架，覆盖 Mali/Adreno/Apple GPU）。
-
-## 五，学界在卷什么
-
-1. **前向优化替代反向传播**：ZO，evolutionary，TD 式更新，目标是让训练复用推理图，这是我认为最有工程价值的方向——它直接解决了"推理引擎不支持训练"这个根问题。
-2. **PEFT 的极端压缩**：LoRA→张量分解 LoRA→只训一个 output-side core，参数往千分之一压，同时要保精度。
-3. **训练-推理同构硬件**：near-memory，SRAM-on-chip 训练，和 NPU 厂商的 ISA 一起 co-design。
-4. **端侧持续学习/个性化**：在不重装 app 的前提下，模型在设备上随用户数据漂移，这部分学术界热，但产品化极少。
+## 学界的研究
+1. 绕开反向传播，只用前向做优化：ZO、进化策略、时序差分更新这类思路。这个方向工程价值最高——它直接解决现有推理runtime原生不支持反向的痛点。
+2. PEFT进一步压缩：从普通LoRA，到分解版LoRA，再到只训练输出侧少量参数，在尽量保住效果的前提下，把可训练参数量压到极低。
+3. 软硬协同的训练架构：近内存计算、片上SRAM训练，和NPU指令集联合设计。
+4. 端侧持续学习：让模型跟着用户数据分布变化慢慢适配，不需要更新APP。这块论文很多，但做成商业化产品的很少。
 
 ## 我的判断
+Edge Training现在已经不是科研问题，是标准工程任务。车企、自动化工厂、机器人团队，在Orin、Jetson上跑本地微调已经是常规操作。
 
-- **edge training 已经是工程问题**，不是研究问题——车厂，工厂，机器人公司在 Jetson/Orin 上跑本地微调是常态。
-- **on-board training 还卡在"训练的内存成本必须降一个量级"这个坎上**。未来 2–3 年能真正跑出来的形态，大概率不是"端侧训大模型"，而是：**冻结基座 + 端上只训一个几十 KB～几 MB 的 adapter**，由推理引擎用 ZO 或轻量 LoRA 完成。这也是 Qualcomm，Apple 现在实际在做的事。
-- federated learning 作为"训练范式"叙事已经降温，但它的隐私计算外衣会一直被企业采购买单——别把它当技术突破看。
+On-board Training 还卡在内存开销这一关，需要把训练的内存占用再下一个量级。未来两三年，能铺开的形态，大概率不是终端直接训完整大模型；而是基座全程冻结，只在本地用ZO或者轻量化LoRA，训练一份几十KB到几MB的Adapter。这也是现在Apple、高通实际落地的路线。
+
+联邦学习本身作为一套训练范式，热度已经褪去；但它绑定的隐私合规属性，还会长期作为企业采购方案里的配套包装。
+
+和李沐之前的判断不一样的是，我觉得实时训练 或者叫真实世界训练是能做的，不用说服务什么采矿 工业场景，就单独做玩具社交我觉得都有内容，需要近期再仔细看看。
